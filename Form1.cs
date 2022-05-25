@@ -12,25 +12,30 @@ namespace Tet3
 {
     public partial class Form1 : Form
     {
-        bool MenuMade;
-        int GameState;
         Timer falltimer;
         PictureBox Board;
         Tetramino CurrTet;
         LockedBoard LogicBoard;
+        int startoff;
+        Button MenuButton;
+        Button ResumeGame;
+        PictureBox Background;
+        Label ScoreBox;
+        Label ScoreLabel;
+        UInt64 Score;
+
         public Form1()
         {
             InitializeComponent();
-            GameState = 0;
-            MenuMade = true;
             Menu();
-            
+
+
 
         }
 
         private void StopDrop(object Sender, KeyEventArgs e)
         {
-            switch(e.KeyCode)
+            switch (e.KeyCode)
             {
                 case Keys.Down:
                     falltimer.Interval = 800;
@@ -40,7 +45,7 @@ namespace Tet3
 
         private void LatTrans(object Sender, KeyEventArgs e)
         {
-            switch(e.KeyCode)
+            switch (e.KeyCode)
             {
                 case Keys.Up:
                     UpPress();
@@ -53,6 +58,9 @@ namespace Tet3
                     break;
                 case Keys.Down:
                     DropFast();
+                    break;
+                case Keys.Escape:
+                    PauseInit();
                     break;
             }
         }
@@ -73,7 +81,7 @@ namespace Tet3
 
                 tempvects[2 * i] = CurrTet.blocks[0].Location[0] + temprel[2 * i];
                 tempvects[2 * i + 1] = CurrTet.blocks[0].Location[1] + temprel[2 * i + 1];
-                if ((tempvects[2 * i] < 0 )|| (tempvects[2 * i] > 9)) return;
+                if ((tempvects[2 * i] < 0) || (tempvects[2 * i] > 9)) return;
                 if ((tempvects[2 * i + 1] > 21) || (tempvects[2 * i + 1] < 0)) return;
                 if (LogicBoard.Rows[tempvects[2 * i + 1]].blockrow[tempvects[2 * i]] != null) return;
             }
@@ -108,6 +116,8 @@ namespace Tet3
             if (CheckColl())
             {
                 LockTet();
+                if (LogicBoard.highest == 2) startoff = 2; else startoff = 0;
+                if (LogicBoard.highest == 0) GameOver();
                 inittet();
             }
             else CurrTet.down();
@@ -115,16 +125,17 @@ namespace Tet3
 
         private void LockTet()
         {
-            for(int i = 0;i < 4; i++)
+            for (int i = 0; i < 4; i++)
             {
                 LogicBoard.AddBlock(CurrTet.blocks[i]);
             }
-            LogicBoard.ClearRows();
+            Score += LogicBoard.ClearRows();
+            ScoreBox.Text = Score.ToString();
         }
 
         private bool CheckColl()
         {
-            for(int i = 0;i < 4; i++)
+            for (int i = 0; i < 4; i++)
             {
                 if (CurrTet.blocks[i].Location[1] > 20) return true;
                 if (LogicBoard.Rows[CurrTet.blocks[i].Location[1] + 1].blockrow[CurrTet.blocks[i].Location[0]] != null) return true;
@@ -157,13 +168,28 @@ namespace Tet3
         private void PressStart(object Sender, EventArgs e)
         {
             this.Controls.Clear();
-            MenuMade = false;
             Board = new PictureBox();
             Board.Location = new Point(200, 100);
             Board.Size = new Size(400, 800);
             Board.Image = new Bitmap("..\\..\\..\\textures\\board.png");
             Controls.Add(Board);
-            
+            startoff = 0;
+            Score = 0;
+
+            ScoreLabel = new Label();
+            ScoreLabel.Location = new Point(600, 450);
+            ScoreLabel.Text = "Score:";
+            ScoreLabel.Size = new Size(100, 50);
+            ScoreLabel.TextAlign = ContentAlignment.MiddleCenter;
+            Controls.Add(ScoreLabel);
+
+            ScoreBox = new Label();
+            ScoreBox.Location = new Point(600, 400);
+            ScoreBox.Size = new Size(100, 50);
+            ScoreBox.Text = Score.ToString();
+            ScoreBox.TextAlign = ContentAlignment.MiddleCenter;
+            Controls.Add(ScoreBox);
+
             LogicBoard = new LockedBoard();
 
             inittet();
@@ -178,9 +204,64 @@ namespace Tet3
             falltimer.Start();
         }
 
+        private void PauseInit()
+        {
+            KeyDown -= LatTrans;
+            falltimer.Tick -= TickEvent;
+            falltimer.Stop();
+
+            Background = new PictureBox();
+            Background.Location = new Point(200, 200);
+            Background.Size = new Size(400, 600);
+            Background.Image = new Bitmap("..\\..\\..\\textures\\pauseimage.png");
+
+            MenuButton = new Button();
+            MenuButton.Size = new Size(200, 50);
+            MenuButton.Location = new Point(300, 400);
+            MenuButton.Text = "Return to Main Menu";
+
+            ResumeGame = new Button();
+            ResumeGame.Size = new Size(200, 50);
+            ResumeGame.Location = new Point(300, 300);
+            ResumeGame.Text = "Resume Game";
+            
+
+            Controls.Add(Background);
+            Controls.Add(ResumeGame);
+            Controls.Add(MenuButton);
+
+            Background.BringToFront();
+            MenuButton.BringToFront();
+            ResumeGame.BringToFront();
+
+            MenuButton.Click += ReturnToMenu;
+            ResumeGame.Click += Resume;
+        }
+
+        private void Resume(object Handler, EventArgs e)
+        {
+            Controls.Remove(Background);
+            Controls.Remove(ResumeGame);
+            Controls.Remove(MenuButton);
+
+            Background?.Dispose();
+            ResumeGame?.Dispose();
+            MenuButton?.Dispose();
+
+            KeyDown += LatTrans;
+            falltimer.Tick += TickEvent;
+            falltimer.Start();
+        }
+
+        private void ReturnToMenu(object Handler, EventArgs e)
+        {
+            Controls.Clear();
+            Menu();
+        }
+
         private void inittet()
         {
-            CurrTet = new Tetramino();
+            CurrTet = new Tetramino(startoff);
             for (int i = 0; i < 4; i++) 
             {
                 Controls.Add(CurrTet.blocks[i].BlockTexture);
@@ -193,13 +274,48 @@ namespace Tet3
             Application.Exit();
         }
 
+        private void GameOver()
+        {
+            Controls.Clear();
+            falltimer = null;
+
+            ScoreLabel.Location = new Point(350, 200);
+            ScoreBox.Location = new Point(350, 250);
+
+            Label GameOverLabel = new Label();
+            GameOverLabel.Text = "Game Over!";
+            GameOverLabel.Location = new Point(350, 150);
+            GameOverLabel.Size = new Size(100, 50);
+            GameOverLabel.TextAlign = ContentAlignment.MiddleCenter;
+
+            Controls.Add((Control)GameOverLabel);
+            Controls.Add((Control)ScoreLabel);
+            Controls.Add((Control)ScoreBox);
+            
+            MenuButton = new Button();
+            MenuButton.Size = new Size(200, 50);
+            MenuButton.Location = new Point(300, 400);
+            MenuButton.Text = "Return to Main Menu";
+
+            ResumeGame = new Button();
+            ResumeGame.Size = new Size(200, 50);
+            ResumeGame.Location = new Point(300, 300);
+            ResumeGame.Text = "Quit Game";
+
+            Controls.Add(ResumeGame);
+            Controls.Add((Control)MenuButton);
+
+            ResumeGame.Click += PressQuit;
+            MenuButton.Click += ReturnToMenu;
+        }
+
     }
 
     public class LockedBoard
     {
         public List<Row> Rows;
         public List<int> RowsToClear;
-        int highest;
+        public int highest;
 
         public LockedBoard()
         {
@@ -218,13 +334,26 @@ namespace Tet3
                 RowsToClear.Add(block.Location[1]);
             }
 
+            
         }
 
-        public void ClearRows()
+        public UInt64 ClearRows()
         {
             int offset = 1;
             int LoopRow;
-            if (RowsToClear.Count == 0) return;
+            UInt64 Score = 0;
+
+            if (RowsToClear.Count == 0) return 0;
+
+            switch (RowsToClear.Count) 
+            {
+                case 4: Score += 400; goto case 3;
+                case 3: Score += 300; goto case 2;
+                case 2: Score += 200; goto case 1;
+                case 1: Score += 100; break;
+            }
+
+
             LoopRow = RowsToClear.Max();
             RowsToClear.RemoveAll(x => x == LoopRow);
 
@@ -250,8 +379,9 @@ namespace Tet3
                 }
                 
             }
+            highest += offset;
             RowsToClear.Clear();
-            return;
+            return Score;
         }
 
         public class Row 
@@ -351,7 +481,7 @@ namespace Tet3
         private string color;
         private int[] offset;
 
-        public Tetramino()
+        public Tetramino(int startoff)
         {
             this.blocks = new List<Block>(4);
             Random rand = new Random();
@@ -390,7 +520,7 @@ namespace Tet3
 
             for (int i = 0; i < 4; i++)
             {
-                blocks.Add(new Block(offset[2 * i], offset[2 * i + 1], color));
+                blocks.Add(new Block(offset[2 * i], offset[2 * i + 1] - startoff, color));
             }
         }
 
