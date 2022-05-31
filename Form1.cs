@@ -70,6 +70,7 @@ namespace Tet3
             falltimer.Interval = 100;
         }
 
+        // Rotation Method, something wrong when above 4
         private void UpPress()
         {
             int[] tempvects = new int[8];
@@ -82,7 +83,7 @@ namespace Tet3
                 tempvects[2 * i] = CurrTet.blocks[0].Location[0] + temprel[2 * i];
                 tempvects[2 * i + 1] = CurrTet.blocks[0].Location[1] + temprel[2 * i + 1];
                 if ((tempvects[2 * i] < 0) || (tempvects[2 * i] > 9)) return;
-                if ((tempvects[2 * i + 1] > 21) || (tempvects[2 * i + 1] < 0)) return;
+                if ((tempvects[2 * i + 1] > 23) || (tempvects[2 * i + 1] < 0)) return;
                 if (LogicBoard.Rows[tempvects[2 * i + 1]].blockrow[tempvects[2 * i]] != null) return;
             }
 
@@ -116,8 +117,18 @@ namespace Tet3
             if (CheckColl())
             {
                 LockTet();
-                if (LogicBoard.highest == 2) startoff = 2; else startoff = 0;
-                if (LogicBoard.highest == 0) GameOver();
+                if (LogicBoard.highest < 6)
+                {
+                    startoff = 1;
+                    if (LogicBoard.highest < 5) startoff++;
+                    if (LogicBoard.highest == 3) startoff++;
+                    else if(LogicBoard.highest < 3)
+                    {
+                        GameOver();
+                        return;
+                    }
+                }
+                else startoff = 0;
                 inittet();
             }
             else CurrTet.down();
@@ -137,7 +148,7 @@ namespace Tet3
         {
             for (int i = 0; i < 4; i++)
             {
-                if (CurrTet.blocks[i].Location[1] > 20) return true;
+                if (CurrTet.blocks[i].Location[1] > 22) return true;
                 if (LogicBoard.Rows[CurrTet.blocks[i].Location[1] + 1].blockrow[CurrTet.blocks[i].Location[0]] != null) return true;
             }
             return false;
@@ -169,7 +180,7 @@ namespace Tet3
         {
             this.Controls.Clear();
             Board = new PictureBox();
-            Board.Location = new Point(200, 100);
+            Board.Location = new Point(200, 160);
             Board.Size = new Size(400, 800);
             Board.Image = new Bitmap("..\\..\\..\\textures\\board.png");
             Controls.Add(Board);
@@ -177,7 +188,7 @@ namespace Tet3
             Score = 0;
 
             ScoreLabel = new Label();
-            ScoreLabel.Location = new Point(600, 450);
+            ScoreLabel.Location = new Point(600, 350);
             ScoreLabel.Text = "Score:";
             ScoreLabel.Size = new Size(100, 50);
             ScoreLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -277,7 +288,9 @@ namespace Tet3
         private void GameOver()
         {
             Controls.Clear();
-            falltimer = null;
+            falltimer.Stop();
+            falltimer.Dispose();
+            LogicBoard = null;
 
             ScoreLabel.Location = new Point(350, 200);
             ScoreBox.Location = new Point(350, 250);
@@ -319,10 +332,10 @@ namespace Tet3
 
         public LockedBoard()
         {
-            highest = 21;
-            Rows = new List<Row>(22);
+            highest = 23;
+            Rows = new List<Row>(24);
             RowsToClear = new List<int>(0);
-            for (int i = 0; i < 22; i++) Rows.Add(new Row());
+            for (int i = 0; i < 24; i++) Rows.Add(new Row());
         }
 
         public void AddBlock(Block block)
@@ -425,18 +438,14 @@ namespace Tet3
         public PictureBox BlockTexture;
         public int[] Location;
         public int[] relvects;
-        public Block(int xoff, int yoff, string color)
+        public Block(int xoff, int yoff, int startoff, string color)
         {
             relvects = new int[2] {xoff, yoff};
-            Location = new int[2] { 4 + xoff, 2 + yoff };
+            Location = new int[2] { 4 + xoff, 4 + yoff - startoff};
             BlockTexture = new PictureBox();
-            BlockTexture.Location = new Point(Location[0] * 40 + 200, Location[1] * 40 + 20);
+            BlockTexture.Location = new Point(Location[0] * 40 + 200, Location[1] * 40);
             BlockTexture.Size = new Size(40, 40);
             BlockTexture.Image = new Bitmap(color);
-            if (Location[1] < 2)
-            {
-                BlockTexture.Visible = false;
-            }
             
         }
 
@@ -449,9 +458,7 @@ namespace Tet3
 
         public void UpdateImage()
         {
-            BlockTexture.Location = new Point(200 + Location[0] * 40, 20 + Location[1] * 40);
-            if(Location[1] < 2) BlockTexture.Visible = false;
-            else BlockTexture.Visible = true;
+            BlockTexture.Location = new Point(200 + Location[0] * 40, Location[1] * 40);
         }
 
         public void left()
@@ -520,7 +527,7 @@ namespace Tet3
 
             for (int i = 0; i < 4; i++)
             {
-                blocks.Add(new Block(offset[2 * i], offset[2 * i + 1] - startoff, color));
+                blocks.Add(new Block(offset[2 * i], offset[2 * i + 1], startoff, color));
             }
         }
 
@@ -539,6 +546,7 @@ namespace Tet3
             for(int i = 0; i < 4; i++) blocks[i].right();
         }
         
+        // Handles the rotation of the blocks when up is pressed
         public void Rotate(int[] tempvects, int[] temprel)
         {
             for(int j = 1; j < 4; j++)
